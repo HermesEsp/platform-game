@@ -16,7 +16,7 @@ export class Vector2 {
     return new Vector2(0, 0);
   }
 
-  static up(): Vector2 {
+  static jump(): Vector2 {
     return new Vector2(0, -1);
   }
 

@@ -1,44 +1,58 @@
-import { Vector2 } from "../../domain/valueObjects/Vector2";
-import type Phaser from "phaser";
-import type { IMovable } from "../../domain/contracts/IMovable";
+// infrastructure/rendering/PhaserPlayerView.ts
+import Phaser from "phaser";
+import { Player } from "../../domain/entities/Player";
 
-type ArcadeGameObject = Phaser.GameObjects.GameObject & { body: Phaser.Physics.Arcade.Body };
+export class PhaserPlayerView {
+  private sprite: Phaser.Physics.Arcade.Sprite
+  constructor(sprite: Phaser.Physics.Arcade.Sprite) {
+    this.sprite = sprite
+  }
 
-export class PhaserPlayerView implements IMovable {
-  private readonly body: Phaser.Physics.Arcade.Body;
-
-  constructor(gameObject: ArcadeGameObject) {
-    // Garantir que o corpo existe
-    const body = gameObject.body as Phaser.Physics.Arcade.Body | null;
-    if (!body) {
-      throw new Error("PhaserPlayerView precisa de um corpo Arcade Physics");
+  syncFromEntity(player: Player) {
+    // Movimento horizontal
+    if (player.direction === "left") {
+      this.sprite.setVelocityX(-player.speed);
+      this.sprite.setFlipX(true);
+    } else if (player.direction === "right") {
+      this.sprite.setVelocityX(player.speed);
+      this.sprite.setFlipX(false);
+    } else {
+      this.sprite.setVelocityX(0);
     }
-    this.body = body;
+
+    // Pulo
+    if (player.isJumping) {
+      this.sprite.setVelocityY(-player.jumpForce);
+      player.isJumping = false;
+    }
+
+    // Estado físico → entity
+    if (!this.sprite.body) {
+      throw new Error("Sprite must have a body");
+    }
+    player.isOnGround = this.sprite.body.blocked.down;
   }
 
-  /**
-   * Define a velocidade do player em pixels/segundo
-   * @param velocity Vector2 normalizado ou escalado
-   */
-  setVelocity(velocity: Vector2) {
-    this.body.setVelocity(velocity.x, velocity.y);
+  updateAnimation(player: Player) {
+    if (!player.isOnGround) {
+      this.sprite.play("jump", true);
+      return;
+    }
+
+    if (player.direction === "left" || player.direction === "right") {
+      this.sprite.play("run", true);
+      return;
+    }
+
+    this.sprite.play("idle", true);
   }
 
-  /**
-   * Opcional: parar o player
-   */
-  stop() {
-    this.body.setVelocity(0, 0);
+  getCameraTarget() {
+    return this.sprite;
   }
 
-  /**
-   * Opcional: obter posição
-   */
-  getPosition(): Vector2 {
-    return Vector2.create(this.body.x, this.body.y);
-  }
-
-  getCameraTarget(): Phaser.Physics.Arcade.Body {
-    return this.body;
+  setGravity(gravity = 1200) {
+    this.sprite.setGravityY(gravity);
+    this.sprite.setMaxVelocity(300, 1000);
   }
 }

@@ -1,24 +1,18 @@
-import { isDirection, type Direction } from "../contracts/InputDirection";
-import type { InputState } from "../contracts/InputState";
+import type { Direction } from "../contracts/InputDirection";
+import type { InputMovementState } from "../contracts/InputState";
 import { Vector2 } from "../valueObjects/Vector2";
 
-const DIRECTION_VECTOR: Record<Direction, Vector2> = {
-  up: Vector2.up(),
-  down: Vector2.down(),
+const DIRECTION_VECTOR: Omit<Record<Direction, Vector2>, 'up' | 'down'> = {
   left: Vector2.left(),
   right: Vector2.right(),
 };
 
 export class MovementRule {
-  static resolve(input: InputState): Vector2 {
+  static resolve(input: InputMovementState): Vector2 {
     let movement = Vector2.zero();
 
-    for (const key in input) {
-      if (!isDirection(key)) continue;
-      if (input[key]) {
-        movement = movement.add(DIRECTION_VECTOR[key]);
-      }
-    }
+    if (input.left) movement = movement.add(DIRECTION_VECTOR.left);
+    if (input.right) movement = movement.add(DIRECTION_VECTOR.right);
 
     return movement.isZero() ? Vector2.zero() : movement.normalize();
   }

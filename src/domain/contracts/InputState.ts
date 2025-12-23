@@ -1,6 +1,12 @@
-export type InputState = {
-  up: boolean;
-  down: boolean;
+export type InputMovementState = {
   left: boolean;
   right: boolean;
 };
+
+export type InputActionState = {
+  space: boolean;
+};
+
+export type InputState = InputMovementState & InputActionState;
+
+

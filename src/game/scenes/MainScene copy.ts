@@ -4,14 +4,11 @@ import { KeyboardInput } from "../../infrastructure/input/KeyboardInput";
 import { MovePlayer } from "../../application/useCases/MovePlayer";
 import { PlayerAnimationFactory } from "../../infrastructure/rendering/PlayerAnimationFactory";
 import { JumpPlayer } from "../../application/useCases/JumpPlayer";
-import { Player } from "../../domain/entities/Player";
-import { JumpThroughPlatformFactory } from "../../infrastructure/physics/JumpThroughPlatformFactory";
 
 
 export class MainScene extends Phaser.Scene {
   private playerView!: PhaserPlayerView;
   private keyboard!: KeyboardInput;
-  private player!: Player;
 
   private readonly playerSpeed = 200;
   private readonly playerJumpForce = 450;
@@ -51,48 +48,35 @@ export class MainScene extends Phaser.Scene {
       throw new Error("Camadas Plants não encontradas");
     }
 
-    const jumpLayer = map.createLayer("jump_through", tileset);
-    if (!jumpLayer) {
-      throw new Error("Camadas jump_through não encontradas");
-    }
-
 
     // Colisão baseada em propriedade do tile
     groundLayer.setCollisionByProperty({ collides: true });
     platformLayer.setCollisionByProperty({ collides: true });
     enemiesLayer.setCollisionByProperty({ collides: true });
     plantsLayer.setCollisionByProperty({ collides: true });
-    jumpLayer.setCollisionByExclusion([-1]);
 
     /* ===============================
      * 2️⃣ PLAYER
      * =============================== */
-    this.player = new Player();
     const playerGO = this.physics.add.sprite(128, 224, "player");
     playerGO.setBounce(0.2);
     playerGO.setCollideWorldBounds(true);
     playerGO.body.setSize(32, 32);
+    playerGO.body.setOffset(0, 0);
+    this.physics.add.collider(playerGO, groundLayer);
 
     this.playerView = new PhaserPlayerView(playerGO);
 
-    this.playerView.setGravity();
-    PlayerAnimationFactory.register(this);
-
-    this.physics.add.collider(
-      this.playerView.getCameraTarget(),
-      platformLayer
-    );
-
+    // Player × paredes
     this.physics.add.collider(
       this.playerView.getCameraTarget(),
       groundLayer
     );
 
-    JumpThroughPlatformFactory.createForPlayer(
-      this,
-      this.playerView.getCameraTarget(),
-      jumpLayer
-    );
+
+    this.playerView.setGravity();
+
+    PlayerAnimationFactory.register(this);
 
     /* ===============================
      * 3️⃣ INPUT
@@ -115,18 +99,17 @@ export class MainScene extends Phaser.Scene {
 
   update() {
     MovePlayer.execute(
-      this.player,
+      this.playerView,
       this.keyboard.getState(),
       this.playerSpeed
     );
 
     JumpPlayer.execute(
-      this.player,
+      this.playerView,
       this.keyboard.getState(),
       this.playerJumpForce
     );
 
-    this.playerView.syncFromEntity(this.player);
-    this.playerView.updateAnimation(this.player);
+    this.playerView.updateAnimation();
   }
 }
