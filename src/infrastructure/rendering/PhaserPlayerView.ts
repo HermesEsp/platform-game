@@ -3,48 +3,73 @@ import Phaser from "phaser";
 import { Player } from "../../domain/entities/Player";
 
 export class PhaserPlayerView {
-  private sprite: Phaser.Physics.Arcade.Sprite
+  private sprite: Phaser.Physics.Arcade.Sprite;
+
   constructor(sprite: Phaser.Physics.Arcade.Sprite) {
-    this.sprite = sprite
+    this.sprite = sprite;
   }
 
   syncFromEntity(player: Player) {
-    // Movimento horizontal
-    if (player.direction === "left") {
-      this.sprite.setVelocityX(-player.speed);
-      this.sprite.setFlipX(true);
-    } else if (player.direction === "right") {
-      this.sprite.setVelocityX(player.speed);
-      this.sprite.setFlipX(false);
-    } else {
-      this.sprite.setVelocityX(0);
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+    if (!body) throw new Error("Sprite must have a body");
+
+    // ============================
+    // Movimento Horizontal
+    // ============================
+
+    const currentSpeed = player.getSpeed() * player.getSpeedMultiplier();
+
+    switch (player.getHorizontalIntent()) {
+      case "left":
+        body.setVelocityX(-currentSpeed);
+        this.sprite.setFlipX(true);
+        break;
+      case "right":
+        body.setVelocityX(currentSpeed);
+        this.sprite.setFlipX(false);
+        break;
+      case "idle":
+        body.setVelocityX(0);
+        break;
     }
 
-    // Pulo
-    if (player.isJumping) {
-      this.sprite.setVelocityY(-player.jumpForce);
-      player.isJumping = false;
+    // ============================
+    // Saltos
+    // ============================
+    if (player.hasJumpIntent() && body.blocked.down) {
+
+      body.setVelocityY(-player.getJumpForce());
+      player.consumeJump();
     }
 
-    // Estado físico → entity
-    if (!this.sprite.body) {
-      throw new Error("Sprite must have a body");
+    // ============================
+    // Drop-through
+    // ============================
+    if (player.hasDropThroughIntent() && body.blocked.down) {
+      player.requestDropThrough();
+
+      // Mantém o estado de "dropping" por 150ms para atravessar o tile
+      this.sprite.scene.time.delayedCall(150, () => {
+        player.consumeDropThrough();
+      });
     }
-    player.isOnGround = this.sprite.body.blocked.down;
   }
 
   updateAnimation(player: Player) {
-    if (!player.isOnGround) {
+    if (!(this.sprite.body as Phaser.Physics.Arcade.Body).blocked.down) {
       this.sprite.play("jump", true);
       return;
     }
 
-    if (player.direction === "left" || player.direction === "right") {
+    const dir = player.getHorizontalIntent();
+    if (dir === "left" || dir === "right") {
       this.sprite.play("run", true);
       return;
     }
 
-    this.sprite.play("idle", true);
+    player.isDeeplyIdle() ?
+      this.sprite.play("inactive", true) :
+      this.sprite.play("idle", true);
   }
 
   getCameraTarget() {

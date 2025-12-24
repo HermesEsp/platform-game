@@ -6,6 +6,8 @@ import { PlayerAnimationFactory } from "../../infrastructure/rendering/PlayerAni
 import { JumpPlayer } from "../../application/useCases/JumpPlayer";
 import { Player } from "../../domain/entities/Player";
 import { JumpThroughPlatformFactory } from "../../infrastructure/physics/JumpThroughPlatformFactory";
+import { DropThroughPlayer } from "../../application/useCases/DropThroughPlayer";
+import { PlayerIntent } from "../../application/useCases/PlayIntent";
 
 
 export class MainScene extends Phaser.Scene {
@@ -13,8 +15,6 @@ export class MainScene extends Phaser.Scene {
   private keyboard!: KeyboardInput;
   private player!: Player;
 
-  private readonly playerSpeed = 200;
-  private readonly playerJumpForce = 450;
   private readonly cameraZoom = 1;
 
   constructor() {
@@ -71,7 +71,7 @@ export class MainScene extends Phaser.Scene {
     const playerGO = this.physics.add.sprite(128, 224, "player");
     playerGO.setBounce(0.2);
     playerGO.setCollideWorldBounds(true);
-    playerGO.body.setSize(32, 32);
+    playerGO.body.setSize(16, 32);
 
     this.playerView = new PhaserPlayerView(playerGO);
 
@@ -80,18 +80,19 @@ export class MainScene extends Phaser.Scene {
 
     this.physics.add.collider(
       this.playerView.getCameraTarget(),
-      platformLayer
+      platformLayer,
     );
 
     this.physics.add.collider(
       this.playerView.getCameraTarget(),
-      groundLayer
+      groundLayer,
     );
 
     JumpThroughPlatformFactory.createForPlayer(
       this,
       this.playerView.getCameraTarget(),
-      jumpLayer
+      this.player,
+      jumpLayer,
     );
 
     /* ===============================
@@ -113,18 +114,15 @@ export class MainScene extends Phaser.Scene {
     camera.setZoom(this.cameraZoom);
   }
 
-  update() {
-    MovePlayer.execute(
-      this.player,
-      this.keyboard.getState(),
-      this.playerSpeed
-    );
+  update(_time: number, delta: number) {
+    const input = this.keyboard.getState();
+    const actions = PlayerIntent.mapInput(input);
 
-    JumpPlayer.execute(
-      this.player,
-      this.keyboard.getState(),
-      this.playerJumpForce
-    );
+    this.player.updateIdleTime(delta);
+
+    MovePlayer.execute(this.player, actions);
+    JumpPlayer.execute(this.player, actions);
+    DropThroughPlayer.execute(this.player, actions);
 
     this.playerView.syncFromEntity(this.player);
     this.playerView.updateAnimation(this.player);

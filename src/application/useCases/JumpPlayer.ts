@@ -1,19 +1,13 @@
-import type { InputActionState } from "../../domain/contracts/InputState";
 import type { Player } from "../../domain/entities/Player";
+import type { PlayerActionIntent } from "./PlayIntent";
 
 export class JumpPlayer {
   static execute(
     player: Player,
-    input: InputActionState,
-    jumpForce: number
+    intent: PlayerActionIntent,
   ) {
-    if (!player.isOnGround) return;
-
-    if (input.space) {
-      player.isJumping = true;
-      player.jumpForce = jumpForce;
-      player.isOnGround = false;
+    if (intent.jump) {
+      player.requestJump();
     }
   }
 }
-
