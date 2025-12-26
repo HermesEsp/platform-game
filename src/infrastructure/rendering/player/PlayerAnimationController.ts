@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { Player } from "../../domain/entities/player/Player";
+import type { Player } from "../../../domain/entities/player";
 
 export class PlayerAnimationController {
   private readonly sprite: Phaser.Physics.Arcade.Sprite;

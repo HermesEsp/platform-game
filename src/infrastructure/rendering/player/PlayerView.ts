@@ -1,8 +1,8 @@
 // infrastructure/rendering/PhaserPlayerView.ts
 import Phaser from "phaser";
-import { Player } from "../../domain/entities/player/Player";
+import type { Player } from "../../../domain/entities/player";
 
-export class PhaserPlayerView {
+export class PlayerView {
   private sprite: Phaser.Physics.Arcade.Sprite;
 
   constructor(sprite: Phaser.Physics.Arcade.Sprite) {

@@ -35,6 +35,10 @@ export class PlayerCombat {
   }
 
   heal(amount: number) {
+    console.log(this.health)
+    console.log(amount)
     this.health = Math.min(100, this.health + amount);
+    console.log(this.health)
+
   }
 }

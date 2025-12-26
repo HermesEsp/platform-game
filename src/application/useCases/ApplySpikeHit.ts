@@ -7,12 +7,12 @@ export class ApplySpikeHit {
     body: Phaser.Physics.Arcade.Body
   ) {
     // 🔴 Se já morreu ou está morrendo, ignora
-    if (!player.isAlive()) return;
+    if (!player.life.isAlive()) return;
 
     player.takeDamage(10, "spikes");
 
     // 🟢 Knockback só se sobreviveu
-    if (player.isAlive()) {
+    if (player.life.isAlive()) {
       body.setVelocityY(-250);
     }
   }

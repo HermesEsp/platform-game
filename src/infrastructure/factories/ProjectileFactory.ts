@@ -21,7 +21,7 @@ export class ProjectileFactory {
       playerGO,
       bullet,
       () => {
-        if (!playerEntity.isInvulnerable()) {
+        if (!playerEntity.combat.isInvulnerable()) {
           projectile.apply(playerEntity);
           bullet.destroy();
         }
