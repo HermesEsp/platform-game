@@ -1,76 +1,49 @@
 // infrastructure/rendering/PhaserPlayerView.ts
 import Phaser from "phaser";
-import { Player } from "../../domain/entities/Player";
+import { Player } from "../../domain/entities/player/Player";
 
 export class PhaserPlayerView {
   private sprite: Phaser.Physics.Arcade.Sprite;
 
   constructor(sprite: Phaser.Physics.Arcade.Sprite) {
     this.sprite = sprite;
+
   }
 
   syncFromEntity(player: Player) {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    if (!body) throw new Error("Sprite must have a body");
 
-    // ============================
-    // Movimento Horizontal
-    // ============================
+    if (player.life.getState() !== "alive") {
+      body.setVelocity(0, 0);
+      return;
+    }
 
-    const currentSpeed = player.getSpeed() * player.getSpeedMultiplier();
+    const speed = player.speed.getFinalSpeed();
 
-    switch (player.getHorizontalIntent()) {
+    switch (player.movement.getDirection()) {
       case "left":
-        body.setVelocityX(-currentSpeed);
+        body.setVelocityX(-speed);
         this.sprite.setFlipX(true);
         break;
       case "right":
-        body.setVelocityX(currentSpeed);
+        body.setVelocityX(speed);
         this.sprite.setFlipX(false);
         break;
-      case "idle":
+      default:
         body.setVelocityX(0);
-        break;
     }
 
-    // ============================
-    // Saltos
-    // ============================
-    if (player.hasJumpIntent() && body.blocked.down) {
-
-      body.setVelocityY(-player.getJumpForce());
-      player.consumeJump();
+    if (player.jump.tryExecute(body.blocked.down)) {
+      body.setVelocityY(-player.jump.getForce());
     }
 
-    // ============================
-    // Drop-through
-    // ============================
-    if (player.hasDropThroughIntent() && body.blocked.down) {
-      player.requestDropThrough();
-
-      // Mantém o estado de "dropping" por 150ms para atravessar o tile
+    if (player.dropThrough.tryExecute(body.blocked.down)) {
       this.sprite.scene.time.delayedCall(150, () => {
-        player.consumeDropThrough();
+        player.dropThrough.stop();
       });
     }
   }
 
-  updateAnimation(player: Player) {
-    if (!(this.sprite.body as Phaser.Physics.Arcade.Body).blocked.down) {
-      this.sprite.play("jump", true);
-      return;
-    }
-
-    const dir = player.getHorizontalIntent();
-    if (dir === "left" || dir === "right") {
-      this.sprite.play("run", true);
-      return;
-    }
-
-    player.isDeeplyIdle() ?
-      this.sprite.play("inactive", true) :
-      this.sprite.play("idle", true);
-  }
 
   getCameraTarget() {
     return this.sprite;

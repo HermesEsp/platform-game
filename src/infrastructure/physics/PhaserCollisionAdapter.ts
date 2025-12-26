@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import type { ICollisionDetector } from "../../domain/contracts/ICollisionDetector";
+import type { ICollisionDetector } from "../../domain/contracts/CollisionDetector";
 import { Vector2 } from "../../domain/valueObjects/Vector2";
 
 export class PhaserCollisionAdapter implements ICollisionDetector {

@@ -1,4 +1,4 @@
-import type { Player } from "../../domain/entities/Player";
+import type { Player } from "../../domain/entities/player/Player";
 import type { PlayerActionIntent } from "./PlayIntent";
 
 export class JumpPlayer {
@@ -7,7 +7,7 @@ export class JumpPlayer {
     intent: PlayerActionIntent,
   ) {
     if (intent.jump) {
-      player.requestJump();
+      player.jump.execute();
     }
   }
 }

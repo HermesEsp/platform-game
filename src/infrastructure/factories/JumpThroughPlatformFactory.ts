@@ -1,4 +1,4 @@
-import type { Player } from "../../domain/entities/Player";
+import type { Player } from "../../domain/entities/player/Player";
 
 export class JumpThroughPlatformFactory {
   static createForPlayer(
@@ -21,7 +21,7 @@ export class JumpThroughPlatformFactory {
         if (!tileBody) return false;
 
         // 1️⃣ Drop-through ativo → ignora tudo
-        if (playerEntity.hasDropThroughIntent()) {
+        if (playerEntity.dropThrough.isActive()) {
           return false;
         }
 
