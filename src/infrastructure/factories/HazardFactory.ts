@@ -1,5 +1,13 @@
 import type { DamageSource } from "../../domain/contracts/DamageSource";
 import type { Player } from "../../domain/entities/player/Player";
+import type { DamageOrigin } from "../../domain/valueObjects/DamageOrigin";
+
+export interface HazardProps {
+  damage?: boolean;
+  damageOrigin?: DamageOrigin;
+  damageSize?: number;
+  damageOffset?: number;
+}
 
 export class HazardFactory {
   static enableForPlayer(
@@ -13,9 +21,12 @@ export class HazardFactory {
       playerGO,
       layer,
       (playerGO, tile) => {
-        const p = playerGO as Phaser.Physics.Arcade.Sprite;
-        const t = tile as Phaser.Tilemaps.Tile;
-        this.action(p, t, playerEntity, damageSource)
+        this.action(
+          playerGO as Phaser.Physics.Arcade.Sprite,
+          tile as Phaser.Tilemaps.Tile,
+          playerEntity,
+          damageSource
+        );
       },
       undefined,
       scene
@@ -32,73 +43,59 @@ export class HazardFactory {
     if (!body) return;
     if (playerEntity.combat.isInvulnerable()) return;
 
-    const props = tile.properties ?? {};
+    const props: HazardProps = tile.properties ?? {};
     if (!props.damage) return;
 
-    const from = props.damageFrom ?? "full";
+    const origin: "top" | "bottom" | "left" | "right" =
+      props.damageOrigin ?? "bottom";
+
+    const size = props.damageSize ?? tile.height;
+    const offset = props.damageOffset ?? 0;
 
     const tileTop = tile.pixelY;
     const tileBottom = tile.pixelY + tile.height;
     const tileLeft = tile.pixelX;
     const tileRight = tile.pixelX + tile.width;
 
-    const playerBottom = body.bottom;
-    const playerTop = body.top;
-    const playerLeft = body.left;
-    const playerRight = body.right;
+    let zoneTop = tileTop;
+    let zoneBottom = tileBottom;
+    let zoneLeft = tileLeft;
+    let zoneRight = tileRight;
 
-    let touching = false;
-
-    switch (from) {
+    switch (origin) {
       case "top": {
-        const damageHeight = props.damageHeight ?? tile.height;
-        const damageZoneTop = tileBottom - damageHeight;
-
-        touching =
-          body.velocity.y > 0 &&
-          playerBottom >= damageZoneTop &&
-          playerBottom <= tileBottom;
+        zoneTop = tileTop + offset;
+        zoneBottom = zoneTop + size;
         break;
       }
 
       case "bottom": {
-        touching =
-          body.velocity.y < 0 &&
-          playerTop <= tileBottom &&
-          playerTop >= tileTop;
+        zoneBottom = tileBottom - offset;
+        zoneTop = zoneBottom - size;
         break;
       }
 
       case "left": {
-        const damageWidth = props.damageWidth ?? tile.width;
-        const zoneRight = tileLeft + damageWidth;
-
-        touching =
-          body.velocity.x > 0 &&
-          playerRight >= tileLeft &&
-          playerRight <= zoneRight;
+        zoneLeft = tileLeft + offset;
+        zoneRight = zoneLeft + size;
         break;
       }
 
       case "right": {
-        const damageWidth = props.damageWidth ?? tile.width;
-        const zoneLeft = tileRight - damageWidth;
-
-        touching =
-          body.velocity.x < 0 &&
-          playerLeft <= tileRight &&
-          playerLeft >= zoneLeft;
+        zoneRight = tileRight - offset;
+        zoneLeft = zoneRight - size;
         break;
       }
-
-      case "full":
-      default:
-        touching = true;
     }
+
+    const touching =
+      body.right > zoneLeft &&
+      body.left < zoneRight &&
+      body.bottom > zoneTop &&
+      body.top < zoneBottom;
 
     if (!touching) return;
 
     damageSource.apply(playerEntity);
   }
-
 }

@@ -3,6 +3,7 @@ import type { Damageable } from "../../contracts/Damageable";
 import { PlayerCombat } from "./PlayerCombat";
 import { PlayerDropThrough } from "./PlayerDropThroughState";
 import { PlayerIdle } from "./PlayerIdle";
+import { PlayerInventory } from "./PlayerInventory";
 import { PlayerJump } from "./PlayerJump";
 import { PlayerLife } from "./PlayerLife";
 import { PlayerMovement } from "./PlayerMovement";
@@ -12,24 +13,18 @@ export type PlayerDirection = "left" | "right" | "idle";
 export type LifeState = "alive" | "dying" | "dead";
 
 export class Player implements Damageable {
+  readonly life = new PlayerLife();
+  readonly speed = new PlayerSpeed();
   readonly movement = new PlayerMovement();
   readonly jump = new PlayerJump();
   readonly dropThrough = new PlayerDropThrough();
-  readonly life = new PlayerLife();
-  readonly combat = new PlayerCombat();
-  readonly speed = new PlayerSpeed();
+  readonly combat = new PlayerCombat(this.life);
+  readonly inventory = new PlayerInventory();
   readonly idle = new PlayerIdle();
-
-  private coins: number = 0;
 
   update(delta: number) {
     this.idle.update(delta, this.movement, this.jump);
     this.combat.update(delta);
-  }
-
-  coin(amount: number) {
-    this.coins += amount;
-    console.log('this.coins', this.coins);
   }
 
   takeDamage(amount: number, type: DamageType): void {

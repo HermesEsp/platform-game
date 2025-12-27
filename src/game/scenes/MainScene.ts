@@ -2,7 +2,6 @@ import { CreatePlayer } from "../../application/factories/CreatePlayer";
 import { CoinCollectible } from "../../domain/collectibles/CoinCollectible";
 import { HealCollectible } from "../../domain/collectibles/HealCollectible";
 import type { GamePlayer } from "../../domain/contracts/GamePlayer";
-import type { ItemAnimation } from "../../domain/contracts/ItemAnimation";
 import { Spike } from "../../domain/entities/Spike";
 import { CoinAnimation } from "../../domain/items/CoinAnimatio";
 import { HealAnimation } from "../../domain/items/HealAnimation";
@@ -12,9 +11,11 @@ import { ItemsAnimationFactory } from "../../infrastructure/factories/ItemsAnima
 import { JumpThroughPlatformFactory } from "../../infrastructure/factories/JumpThroughPlatformFactory";
 import { PlayerAnimationFactory } from "../../infrastructure/factories/PlayerAnimationFactory";
 import { WorldItemFactory } from "../../infrastructure/factories/WorldItemFActory";
-import { PhaserHealthBar } from "../../infrastructure/hud/HealthBar";
+import { CoinCounterHUD } from "../../infrastructure/hud/CoinCounterHUD";
+import { GameHUD } from "../../infrastructure/hud/GameHUD";
+import { GameOverHUD } from "../../infrastructure/hud/GameOverHUD";
+import { HealthBarHUD } from "../../infrastructure/hud/HealthBarHUD";
 import { KeyboardInput } from "../../infrastructure/input/KeyboardInput";
-import { ItemAnimationController } from "../../infrastructure/rendering/ItemsAnimationController";
 import { assertTilemapLayer } from "../utils/assert";
 
 export class MainScene extends Phaser.Scene {
@@ -22,7 +23,11 @@ export class MainScene extends Phaser.Scene {
 
   private player!: GamePlayer;
   private keyboard!: KeyboardInput;
-  private healthBar!: PhaserHealthBar;
+  private HUD!: GameHUD;
+  private healthBarHUD!: HealthBarHUD;
+  private coinCounterHUD!: CoinCounterHUD;
+  private gameOverHUD?: GameOverHUD;
+  private isGameOver = false;
 
   private healGroup!: Phaser.Physics.Arcade.Group;
   private coinGroup!: Phaser.Physics.Arcade.Group;
@@ -43,6 +48,7 @@ export class MainScene extends Phaser.Scene {
    * 🚀 BOOTSTRAP
    * =============================== */
   create() {
+    this.bootstrapInitialize();
     this.bootstrapWorld();
     this.bootstrapPlayer();
     this.bootstrapItems();
@@ -55,6 +61,8 @@ export class MainScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    if (this.isGameOver) return;
+
     this.player.update(delta);
 
     const target = this.player.getCameraTarget();
@@ -62,7 +70,12 @@ export class MainScene extends Phaser.Scene {
       this.player.entity.takeDamage(999, "void");
     }
 
-    this.healthBar.update();
+    this.HUD.update();
+  }
+
+  private bootstrapInitialize() {
+    this.physics.world.resume();
+    this.isGameOver = false;
   }
 
   /* ===============================
@@ -87,9 +100,10 @@ export class MainScene extends Phaser.Scene {
 
     const { widthInPixels, heightInPixels } = this.map;
     this.physics.world.setBounds(0, 0, widthInPixels, heightInPixels);
+    this.physics.world.setBoundsCollision(true, true, true, false);
   }
 
-  /* ===============================
+  /* ===============================setBoundsCollision
    * 🧍 PLAYER
    * =============================== */
   private bootstrapPlayer() {
@@ -97,6 +111,10 @@ export class MainScene extends Phaser.Scene {
     this.player = CreatePlayer.local(this, spawn);
     PlayerAnimationFactory.register(this);
     this.keyboard = new KeyboardInput(this);
+
+    this.player.entity.life.onDeath = () => {
+      this.onPlayerDeath();
+    };
   }
 
   /* ===============================
@@ -169,7 +187,7 @@ export class MainScene extends Phaser.Scene {
       sprite,
       this.player.entity,
       this.healGroup,
-      new HealCollectible(1)
+      new HealCollectible(10)
     );
 
     CollectibleFactory.enableForPlayer(
@@ -206,7 +224,7 @@ export class MainScene extends Phaser.Scene {
    * ❤️ HUD
    * =============================== */
   private bindHUD() {
-    this.healthBar = new PhaserHealthBar(this, this.player.entity);
+    this.HUD = new GameHUD(this, this.player.entity)
   }
 
   /* ===============================
@@ -225,4 +243,20 @@ export class MainScene extends Phaser.Scene {
       y: spawnPoint.y ?? 50
     };
   }
+
+  private onPlayerDeath() {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
+    // pausa física e lógica
+    this.physics.world.pause();
+    this.player.getPhysicsSprite().setVelocity(0, 0);
+
+    this.gameOverHUD = new GameOverHUD(this, () => {
+      this.scene.restart();
+    });
+
+
+  }
+
 }
