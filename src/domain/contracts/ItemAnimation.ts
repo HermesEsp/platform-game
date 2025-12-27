@@ -1,4 +1,4 @@
-export type ItemAnimation = {
+export interface ItemAnimation {
   idle?: string;
   collected?: string;
   active?: string;

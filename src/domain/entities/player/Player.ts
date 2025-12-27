@@ -20,9 +20,16 @@ export class Player implements Damageable {
   readonly speed = new PlayerSpeed();
   readonly idle = new PlayerIdle();
 
+  private coins: number = 0;
+
   update(delta: number) {
     this.idle.update(delta, this.movement, this.jump);
     this.combat.update(delta);
+  }
+
+  coin(amount: number) {
+    this.coins += amount;
+    console.log('this.coins', this.coins);
   }
 
   takeDamage(amount: number, type: DamageType): void {

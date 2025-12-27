@@ -1,7 +1,7 @@
 import type { Collectible } from "../contracts/Collectible";
 import type { Player } from "../entities/player/Player";
 
-export class HealCollectible implements Collectible {
+export class CoinCollectible implements Collectible {
   private amount: number;
 
   constructor(amount: number) {
@@ -9,6 +9,7 @@ export class HealCollectible implements Collectible {
   }
 
   collect(player: Player) {
-    player.combat.heal(this.amount);
+    console.log('collect')
+    player.coin(this.amount);
   }
 }

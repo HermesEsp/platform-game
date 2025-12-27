@@ -19,8 +19,6 @@ export class PlayerMovement {
     this.direction = "idle";
   }
 
-
-
   update(delta: number, jumping: boolean) {
     if (this.direction === "idle" && !jumping) {
       this.idleTime += delta;

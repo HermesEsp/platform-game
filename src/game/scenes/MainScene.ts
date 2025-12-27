@@ -1,23 +1,31 @@
-import Phaser from "phaser";
-import { KeyboardInput } from "../../infrastructure/input/KeyboardInput";
-import { PlayerAnimationFactory } from "../../infrastructure/factories/PlayerAnimationFactory";
-import { PhaserHealthBar } from "../../infrastructure/hud/HealthBar";
-import { ItemsAnimationFactory } from "../../infrastructure/factories/ItemsAnimationFactory";
-import { HazardFactory } from "../../infrastructure/factories/HazardFactory";
-import { JumpThroughPlatformFactory } from "../../infrastructure/factories/JumpThroughPlatformFactory";
-import { Spike } from "../../domain/entities/Spike";
-import { ItemAnimationController } from "../../infrastructure/rendering/ItemsAnimationController";
-import { HealAnimation } from "../../domain/items/HealAnimation";
 import { CreatePlayer } from "../../application/factories/CreatePlayer";
+import { CoinCollectible } from "../../domain/collectibles/CoinCollectible";
+import { HealCollectible } from "../../domain/collectibles/HealCollectible";
 import type { GamePlayer } from "../../domain/contracts/GamePlayer";
+import type { ItemAnimation } from "../../domain/contracts/ItemAnimation";
+import { Spike } from "../../domain/entities/Spike";
+import { CoinAnimation } from "../../domain/items/CoinAnimatio";
+import { HealAnimation } from "../../domain/items/HealAnimation";
+import { CollectibleFactory } from "../../infrastructure/factories/CollectibleFactory";
+import { HazardFactory } from "../../infrastructure/factories/HazardFactory";
+import { ItemsAnimationFactory } from "../../infrastructure/factories/ItemsAnimationFactory";
+import { JumpThroughPlatformFactory } from "../../infrastructure/factories/JumpThroughPlatformFactory";
+import { PlayerAnimationFactory } from "../../infrastructure/factories/PlayerAnimationFactory";
+import { WorldItemFactory } from "../../infrastructure/factories/WorldItemFActory";
+import { PhaserHealthBar } from "../../infrastructure/hud/HealthBar";
+import { KeyboardInput } from "../../infrastructure/input/KeyboardInput";
+import { ItemAnimationController } from "../../infrastructure/rendering/ItemsAnimationController";
 import { assertTilemapLayer } from "../utils/assert";
 
 export class MainScene extends Phaser.Scene {
+  private map!: Phaser.Tilemaps.Tilemap;
+
   private player!: GamePlayer;
   private keyboard!: KeyboardInput;
   private healthBar!: PhaserHealthBar;
+
   private healGroup!: Phaser.Physics.Arcade.Group;
-  private readonly cameraZoom = 1;
+  private coinGroup!: Phaser.Physics.Arcade.Group;
 
   private groundLayer!: Phaser.Tilemaps.TilemapLayer;
   private platformLayer!: Phaser.Tilemaps.TilemapLayer;
@@ -25,90 +33,29 @@ export class MainScene extends Phaser.Scene {
   private jumpLayer!: Phaser.Tilemaps.TilemapLayer;
   private plantsLayer!: Phaser.Tilemaps.TilemapLayer;
 
+  private readonly cameraZoom = 1;
+
   constructor() {
     super("MainScene");
   }
 
+  /* ===============================
+   * 🚀 BOOTSTRAP
+   * =============================== */
   create() {
-    /* ===============================
-     * 1️⃣ MAPA
-     * =============================== */
-    const map = this.make.tilemap({ key: "level1" });
-    const tileset = map.addTilesetImage("Tiles", "tiles");
-    if (!tileset) throw new Error("Tileset não encontrado");
+    this.bootstrapWorld();
+    this.bootstrapPlayer();
+    this.bootstrapItems();
+    this.bootstrapEnemies();
 
-    this.groundLayer = assertTilemapLayer(map.createLayer("ground", tileset), "ground");
-    this.platformLayer = assertTilemapLayer(map.createLayer("platform", tileset), "platform");
-    this.spikesLayer = assertTilemapLayer(map.createLayer("spikes", tileset), "spikes");
-    this.plantsLayer = assertTilemapLayer(map.createLayer("plants", tileset), "plants");
-    this.jumpLayer = assertTilemapLayer(map.createLayer("jump_through", tileset), "jump_through");
-
-    [this.groundLayer, this.platformLayer, this.plantsLayer].forEach(layer => layer?.setCollisionByProperty({ collides: true }));
-    this.jumpLayer?.setCollisionByExclusion([-1]);
-
-    this.physics.world.setBoundsCollision(true, true, true, false);
-
-    /* ===============================
-     * 2️⃣ PLAYER
-     * =============================== */
-    const spawn = this.getSpawnPoint(map);
-    this.player = CreatePlayer.local(this, spawn);
-
-    PlayerAnimationFactory.register(this);
-
-    this.attachPlayerToWorld(this.player);
-
-    /* ===============================
-     * 3️⃣ VIDA
-     * =============================== */
-    this.healthBar = new PhaserHealthBar(this, this.player.entity);
-
-    /* ===============================
-     * 4️⃣ INPUT
-     * =============================== */
-    this.keyboard = new KeyboardInput(this);
-
-    /* ===============================
-     * 5️⃣ CÂMERA
-     * =============================== */
-    const worldWidth = map.widthInPixels;
-    const worldHeight = map.heightInPixels;
-
-    this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
-    const camera = this.cameras.main;
-    const target = this.player.getCameraTarget();
-    if (target) camera.startFollow(target, true, 0.1, 0.1);
-    camera.setBounds(0, 0, worldWidth, worldHeight);
-    camera.setZoom(this.cameraZoom);
-
-    /* ===============================
-     * 6️⃣ HEALS
-     * =============================== */
-    ItemsAnimationFactory.register(this);
-
-    this.healGroup = this.physics.add.group({ allowGravity: false, immovable: true });
-    this.createHeals(map);
-
-    if (target) {
-      this.physics.add.overlap(
-        target,
-        this.healGroup,
-        (playerGO, healGO) => {
-          const player = playerGO as Phaser.Physics.Arcade.Sprite;
-          const heal = healGO as Phaser.Physics.Arcade.Sprite;
-          this.onHealCollected(player, heal);
-        },
-        undefined,
-        this
-      );
-    }
+    // 🔥 SEMPRE POR ÚLTIMO
+    this.bindPhysics();
+    this.bindCamera();
+    this.bindHUD();
   }
 
   update(_time: number, delta: number) {
-
-    // Executa update do player (useCases integrados)
     this.player.update(delta);
-
 
     const target = this.player.getCameraTarget();
     if (target && target.y > this.physics.world.bounds.height + 100) {
@@ -119,61 +66,163 @@ export class MainScene extends Phaser.Scene {
   }
 
   /* ===============================
-   * Helpers
+   * 🌍 WORLD
    * =============================== */
-  private getSpawnPoint(map: Phaser.Tilemaps.Tilemap): { x: number; y: number } {
-    const spawnPoint = map.findObject("spawn", obj => obj.name === "spawn_point");
-    if (!spawnPoint) throw new Error("Spawn point not found");
-    return { x: spawnPoint.x ?? 50, y: spawnPoint.y ?? 50 };
+  private bootstrapWorld() {
+    this.map = this.make.tilemap({ key: "level1" });
+
+    const tileset = this.map.addTilesetImage("Tiles", "tiles");
+    if (!tileset) throw new Error("Tileset não encontrado");
+
+    this.groundLayer = assertTilemapLayer(this.map.createLayer("ground", tileset), "ground");
+    this.platformLayer = assertTilemapLayer(this.map.createLayer("platform", tileset), "platform");
+    this.spikesLayer = assertTilemapLayer(this.map.createLayer("spikes", tileset), "spikes");
+    this.plantsLayer = assertTilemapLayer(this.map.createLayer("plants", tileset), "plants");
+    this.jumpLayer = assertTilemapLayer(this.map.createLayer("jump_through", tileset), "jump_through");
+
+    [this.groundLayer, this.platformLayer, this.plantsLayer]
+      .forEach(layer => layer.setCollisionByProperty({ collides: true }));
+
+    this.jumpLayer.setCollisionByExclusion([-1]);
+
+    const { widthInPixels, heightInPixels } = this.map;
+    this.physics.world.setBounds(0, 0, widthInPixels, heightInPixels);
   }
 
-  private attachPlayerToWorld(player: GamePlayer) {
-    const sprite = player.getPhysicsSprite();
-
-    this.physics.add.collider(sprite, this.platformLayer);
-    this.physics.add.collider(sprite, this.groundLayer);
-    HazardFactory.createForPlayer(this, sprite, player.entity, this.spikesLayer, new Spike());
-    JumpThroughPlatformFactory.createForPlayer(this, sprite, player.entity, this.jumpLayer);
+  /* ===============================
+   * 🧍 PLAYER
+   * =============================== */
+  private bootstrapPlayer() {
+    const spawn = this.getSpawnPoint();
+    this.player = CreatePlayer.local(this, spawn);
+    PlayerAnimationFactory.register(this);
+    this.keyboard = new KeyboardInput(this);
   }
 
+  /* ===============================
+   * 🎁 ITENS
+   * =============================== */
+  private bootstrapItems() {
+    ItemsAnimationFactory.register(this);
 
-  private onHealCollected(_playerGO: Phaser.Physics.Arcade.Sprite, healGO: Phaser.Physics.Arcade.Sprite) {
-    const heal = healGO as Phaser.Physics.Arcade.Sprite;
-    if (heal.getData("collected")) return;
-    heal.setData("collected", true);
+    this.healGroup = this.physics.add.group({ allowGravity: false });
+    this.coinGroup = this.physics.add.group({ allowGravity: false });
 
-    const controller = heal.getData("animationController") as ItemAnimationController;
-
-    controller.playCollected();
-    this.player.entity.combat.heal(10);
-
-    if (heal.body) heal.body.enable = false;
-
-    heal.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => heal.destroy());
-  }
-
-  private createHeals(map: Phaser.Tilemaps.Tilemap) {
-    const layer = map.getObjectLayer("heals");
-    if (!layer) return;
-
-    layer.objects.forEach(obj => {
-      if (obj.type !== "heal") return;
-
-      const w = obj.width ?? 32;
-      const h = obj.height ?? 32;
-
-      const heal = this.healGroup.create(obj.x, obj.y, "items", 8) as Phaser.Physics.Arcade.Sprite;
-      heal.setOrigin(0.5);
-      heal.setDepth(10);
-
-      const body = heal.body as Phaser.Physics.Arcade.Body;
-      body.setSize(w, h);
-      body.allowGravity = false;
-      heal.setImmovable(true);
-
-      const controller = new ItemAnimationController(heal, HealAnimation);
-      heal.setData("animationController", controller);
-      controller.playIdle();
+    WorldItemFactory.createFromTiled(this, this.map, {
+      layer: "heals",
+      type: "heal",
+      texture: "items",
+      frame: 8,
+      animation: HealAnimation,
+      group: this.healGroup,
+      onCreate: sprite => {
+        sprite.setData("collected", false);
+      }
     });
+
+    WorldItemFactory.createFromTiled(this, this.map, {
+      layer: "coins",
+      type: "coin",
+      texture: "items",
+      frame: 8,
+      animation: CoinAnimation,
+      group: this.coinGroup,
+      onCreate: sprite => {
+        sprite.setData("collected", false);
+      }
+    });
+  }
+
+  /* ===============================
+   * 👾 INIMIGOS / HAZARDS
+   * =============================== */
+  private bootstrapEnemies() {
+    // reservado para inimigos futuros
+  }
+
+  /* ===============================
+   * 🔗 PHYSICS BINDINGS
+   * =============================== */
+  private bindPhysics() {
+    const sprite = this.player.getPhysicsSprite();
+
+    this.physics.add.collider(sprite, this.groundLayer);
+    this.physics.add.collider(sprite, this.platformLayer);
+
+    HazardFactory.enableForPlayer(
+      this,
+      sprite,
+      this.player.entity,
+      this.spikesLayer,
+      new Spike()
+    );
+
+    JumpThroughPlatformFactory.enableForPlayer(
+      this,
+      sprite,
+      this.player.entity,
+      this.jumpLayer
+    );
+
+    CollectibleFactory.enableForPlayer(
+      this,
+      sprite,
+      this.player.entity,
+      this.healGroup,
+      new HealCollectible(1)
+    );
+
+    CollectibleFactory.enableForPlayer(
+      this,
+      sprite,
+      this.player.entity,
+      this.coinGroup,
+      new CoinCollectible(1)
+    );
+  }
+
+  /* ===============================
+   * 📷 CAMERA
+   * =============================== */
+  private bindCamera() {
+    const camera = this.cameras.main;
+    const target = this.player.getCameraTarget();
+
+    if (target) {
+      camera.startFollow(target, true, 0.1, 0.1);
+    }
+
+    camera.setBounds(
+      0,
+      0,
+      this.map.widthInPixels,
+      this.map.heightInPixels
+    );
+
+    camera.setZoom(this.cameraZoom);
+  }
+
+  /* ===============================
+   * ❤️ HUD
+   * =============================== */
+  private bindHUD() {
+    this.healthBar = new PhaserHealthBar(this, this.player.entity);
+  }
+
+  /* ===============================
+   * 🧰 HELPERS
+   * =============================== */
+  private getSpawnPoint(): { x: number; y: number } {
+    const spawnPoint = this.map.findObject(
+      "spawn",
+      obj => obj.name === "spawn_point"
+    );
+
+    if (!spawnPoint) throw new Error("Spawn point not found");
+
+    return {
+      x: spawnPoint.x ?? 50,
+      y: spawnPoint.y ?? 50
+    };
   }
 }

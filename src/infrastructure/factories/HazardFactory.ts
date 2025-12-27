@@ -2,7 +2,7 @@ import type { DamageSource } from "../../domain/contracts/DamageSource";
 import type { Player } from "../../domain/entities/player/Player";
 
 export class HazardFactory {
-  static createForPlayer(
+  static enableForPlayer(
     scene: Phaser.Scene,
     playerGO: Phaser.Physics.Arcade.Sprite,
     playerEntity: Player,

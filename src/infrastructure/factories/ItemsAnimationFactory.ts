@@ -13,6 +13,16 @@ const ITEM_ANIMS = {
     frameRate: 8,
     repeat: 0,
   },
+  coin_idle: {
+    frames: [0, 1, 2, 3, 4, 5, 6, 7],
+    frameRate: 8,
+    repeat: -1,
+  },
+  coin_collected: {
+    frames: [7],
+    frameRate: 8,
+    repeat: 0,
+  },
 } as const;
 
 export class ItemsAnimationFactory {

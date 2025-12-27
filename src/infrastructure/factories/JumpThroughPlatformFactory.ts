@@ -1,7 +1,7 @@
 import type { Player } from "../../domain/entities/player/Player";
 
 export class JumpThroughPlatformFactory {
-  static createForPlayer(
+  static enableForPlayer(
     scene: Phaser.Scene,
     playerGO: Phaser.Physics.Arcade.Sprite,
     playerEntity: Player,
